@@ -111,7 +111,12 @@ class ControllerExtensionPaymentwompi extends Controller {
 				},
 				"infoProducto": {
 				  "descripcionProducto": "'.$nombreProducto.'",
-				}
+				},
+				"configuracion": {
+					"urlRedirect": "http://www.localhost/upload/index.php?route=extension/payment/wompi/callback&order_id='.$data['cart_order_id'].'",
+					"emailsNotificacion": "'.$data['email'].'",
+					"notificarTransaccionCliente": true
+				  },
 			}',
 			CURLOPT_HTTPHEADER => array(
 			"authorization: Bearer ".$tokenwompi->access_token,
@@ -129,9 +134,9 @@ class ControllerExtensionPaymentwompi extends Controller {
 				return "cURL Error #:" . $err;
 			} else {
 
-				$urlwompisv = json_decode($res); 
+				$urlwompisv = json_decode($res);
 				$data['action'] = "#";
-				echo "<script>location.href ='".$urlwompisv->urlEnlace."';</script>";
+				
 			}
 
 		if ($this->config->get('payment_wompi_test')) {
@@ -150,26 +155,24 @@ class ControllerExtensionPaymentwompi extends Controller {
 
 		$data['return_url'] = $this->url->link('extension/payment/wompi/callback', '', true);
 
+		echo "<script>location.href='".$urlwompisv->urlEnlace."';</script>";
 		return $this->load->view('extension/payment/wompi', $data);
 	}
 
-	public function callback() {
+	public function callback(){
 		$this->load->model('checkout/order');
 
-		$order_info = $this->model_checkout_order->getOrder($this->request->post['cart_order_id']);
+		$order_info = $this->model_checkout_order->getOrder($this->request->get['order_id']);
 
 		if (!$this->config->get('payment_wompi_test')) {
-			$order_number = $this->request->post['order_number'];
+			$order_number = $this->request->get['order_id'];
 		} else {
 			$order_number = '1';
 		}
 
-		if (strtoupper(md5($this->config->get('payment_wompi_secret') . $this->config->get('payment_wompi_account') . $order_number . $this->request->post['total'])) == $this->request->post['key']) {
-			if ($this->currency->format($order_info['total'], $order_info['currency_code'], $order_info['currency_value'], false) == $this->request->post['total']) {
-				$this->model_checkout_order->addOrderHistory($this->request->post['cart_order_id'], $this->config->get('payment_wompi_order_status_id'));
-			} else {
-				$this->model_checkout_order->addOrderHistory($this->request->post['cart_order_id'], $this->config->get('config_order_status_id'));// Ugh. Some one've faked the sum. What should we do? Probably drop a mail to the shop owner?
-			}
+		
+			
+		$this->model_checkout_order->addOrderHistory($this->request->get['order_id'], $this->config->get('payment_wompi_order_status_id'));
 
 			// We can't use $this->response->redirect() here, because of 2CO behavior. It fetches this page
 			// on behalf of the user and thus user (and his browser) see this as located at 2checkout.com
@@ -184,9 +187,10 @@ class ControllerExtensionPaymentwompi extends Controller {
 			echo '  <p>Please follow <a href="' . $this->url->link('checkout/success') . '">link</a>!</p>' . "\n";
 			echo '</body>' . "\n";
 			echo '</html>' . "\n";
+			
 			exit();
-		} else {
-			echo 'The response from 2checkout.com can\'t be parsed. Contact site administrator, please!';
-		}
+			echo $this->request->get['idEnlace'].' '. $this->config->get('payment_wompi_order_status_id');
+			
+		
 	}
 }
